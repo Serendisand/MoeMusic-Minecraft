@@ -658,25 +658,25 @@ class MusicPlayerScreen : Screen(TITLE), ClientPlaybackHandler.GuiListener {
     private fun markLocallyFilteredEntry(entry: SelectionEntry): SelectionEntry =
         ContentFilterRuntime.selectionBlockReason(entry)
             ?.takeIf { entry.unavailableReason == null }
-            ?.let { reason -> entry.copy(unavailableReason = reason) }
+            ?.let { reason -> entry.copy { unavailableReason = reason } }
             ?: entry
 
     private fun markLocallyFilteredTrack(track: TrackInfo): TrackInfo =
         ContentFilterRuntime.trackBlockReason(track)
             ?.takeIf { track.unavailableReason == null }
-            ?.let { reason -> track.copy(unavailableReason = reason) }
+            ?.let { reason -> track.copy { unavailableReason = reason } }
             ?: track
 
     private fun applyServerFilterOverlay(entry: SelectionEntry): SelectionEntry =
         serverFilterOverlayReason(entry)
             ?.takeIf { entry.unavailableReason == null }
-            ?.let { reason -> entry.copy(unavailableReason = reason) }
+            ?.let { reason -> entry.copy { unavailableReason = reason } }
             ?: entry
 
     private fun applyServerFilterOverlay(track: TrackInfo): TrackInfo =
         serverFilterOverlayReason(track)
             ?.takeIf { track.unavailableReason == null }
-            ?.let { reason -> track.copy(unavailableReason = reason) }
+            ?.let { reason -> track.copy { unavailableReason = reason } }
             ?: track
 
     private fun addTabButtons() {
@@ -998,6 +998,7 @@ class MusicPlayerScreen : Screen(TITLE), ClientPlaybackHandler.GuiListener {
             is PlaybackState.Playing -> tr("screen.moemusic.now_playing.state.playing")
             is PlaybackState.Paused -> tr("screen.moemusic.now_playing.state.paused")
             PlaybackState.Stopped -> tr("screen.moemusic.now_playing.state.stopped")
+            else -> tr("screen.moemusic.now_playing.state.unknown")
         }
         val stateColor = if (ctx.state is PlaybackState.Paused) pausedAccentCol else accentCol
         context.text(
