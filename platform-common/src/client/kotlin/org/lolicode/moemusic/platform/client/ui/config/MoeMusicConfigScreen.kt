@@ -85,6 +85,7 @@ object MoeMusicConfigScreen {
         val globalInstancePlaybackLock: Boolean,
         val disabledServers: List<String>,
         val clientContentFilter: ClientContentFilterConfig,
+        val loudnessNormalization: LoudnessNormalizationConfig,
         val clientCoverArt: CoverArtConfig,
         val hud: NowPlayingHudConfig,
     )
@@ -251,6 +252,33 @@ object MoeMusicConfigScreen {
                 .setDefaultValue(defaultClient.globalInstancePlaybackLock)
                 .setTooltip(McText.translatable("config.moemusic.client.global_instance_playback_lock.tooltip"))
                 .setSaveConsumer { newGlobalInstancePlaybackLock = it }
+                .build()
+        )
+
+        var newLoudnessNormalization = current.client.loudnessNormalization
+        generalCategory.addEntry(
+            entryBuilder.startBooleanToggle(
+                McText.translatable("config.moemusic.client.loudness_normalization.enabled"),
+                current.client.loudnessNormalization.enabled,
+            )
+                .setDefaultValue(defaultClient.loudnessNormalization.enabled)
+                .setTooltip(McText.translatable("config.moemusic.client.loudness_normalization.enabled.tooltip"))
+                .setSaveConsumer { enabled ->
+                    newLoudnessNormalization = newLoudnessNormalization.copy(enabled = enabled)
+                }
+                .build()
+        )
+        generalCategory.addEntry(
+            entryBuilder.startDoubleField(
+                McText.translatable("config.moemusic.client.loudness_normalization.target_lufs"),
+                current.client.loudnessNormalization.targetLufs,
+            )
+                .setDefaultValue(defaultClient.loudnessNormalization.targetLufs)
+                .setTooltip(McText.translatable("config.moemusic.client.loudness_normalization.target_lufs.tooltip"))
+                .setErrorSupplier(::validateLoudnessTarget)
+                .setSaveConsumer { targetLufs ->
+                    newLoudnessNormalization = newLoudnessNormalization.copy(targetLufs = targetLufs)
+                }
                 .build()
         )
 
@@ -829,6 +857,7 @@ object MoeMusicConfigScreen {
                     globalInstancePlaybackLock = newGlobalInstancePlaybackLock,
                     disabledServers = newDisabledServers,
                     clientContentFilter = newClientContentFilter,
+                    loudnessNormalization = newLoudnessNormalization,
                     clientCoverArt = newClientCoverArt,
                     hud = newHud,
                 )
@@ -1093,6 +1122,19 @@ object MoeMusicConfigScreen {
 
     private fun validateRequiredValue(raw: String, key: String): Optional<Component> =
         if (raw.trim().isBlank()) Optional.of(McText.translatable(key)) else Optional.empty()
+
+    private fun validateLoudnessTarget(value: Double): Optional<Component> =
+        if (value.isFinite() && value in LoudnessNormalizationConfig.MIN_TARGET_LUFS..LoudnessNormalizationConfig.MAX_TARGET_LUFS) {
+            Optional.empty()
+        } else {
+            Optional.of(
+                McText.translatable(
+                    "config.moemusic.client.loudness_normalization.target_lufs.invalid",
+                    LoudnessNormalizationConfig.MIN_TARGET_LUFS,
+                    LoudnessNormalizationConfig.MAX_TARGET_LUFS,
+                )
+            )
+        }
 
     private fun validateTextRulePattern(raw: String, mode: ContentFilterTextRuleMode): Optional<Component> {
         val pattern = raw.trim()
@@ -1552,6 +1594,7 @@ object MoeMusicConfigScreen {
             ContentFilterRuleEditor.applyCurrentConfig()
         }
         ClientPlaybackHandler.syncParticipationWithCurrentConfig()
+        ClientPlaybackHandler.refreshTrackNormalization()
         VanillaSoundBlocker.stopBlockedSoundsIfNeeded()
         return mergeResult
     }
@@ -1648,6 +1691,14 @@ object MoeMusicConfigScreen {
             edited = edits.clientContentFilter,
         ) { value ->
             merged = merged.copy(client = merged.client.copy(contentFilter = value))
+        } || hadConflicts
+
+        hadConflicts = applyEditedValue(
+            initial = initial.client.loudnessNormalization,
+            latest = latest.client.loudnessNormalization,
+            edited = edits.loudnessNormalization,
+        ) { value ->
+            merged = merged.copy(client = merged.client.copy(loudnessNormalization = value))
         } || hadConflicts
 
         hadConflicts = applyEditedValue(
