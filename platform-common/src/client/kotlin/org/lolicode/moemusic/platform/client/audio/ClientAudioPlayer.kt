@@ -83,4 +83,7 @@ object ClientAudioPlayer {
 
     /** Set client-local playback volume in the 0.0 .. 1.0 range. */
     fun setVolume(value: Float) = runtime.setVolume(value)
+
+    /** Apply a track-local normalization multiplier in the 0.0 .. 1.0 range. */
+    fun setNormalizationGain(value: Float) = runtime.setNormalizationGain(value)
 }
