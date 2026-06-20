@@ -8,6 +8,7 @@ import org.lolicode.moemusic.api.client.ClientVolumeOverride
 import org.lolicode.moemusic.api.client.IClientPlaybackService
 import org.lolicode.moemusic.api.event.UserParticipationState
 import org.lolicode.moemusic.api.model.TrackContext
+import org.lolicode.moemusic.clientcore.playback.AvailabilityIssue
 import org.lolicode.moemusic.core.config.ModConfigManager
 
 internal object ClientPlaybackServiceImpl : IClientPlaybackService {
@@ -35,10 +36,10 @@ internal object ClientPlaybackServiceImpl : IClientPlaybackService {
     override val currentAvailabilityIssue: ClientAvailabilityIssue?
         get() = when (ClientPlaybackHandler.currentAvailabilityIssue()) {
             null -> null
-            org.lolicode.moemusic.clientcore.playback.AvailabilityIssue.SERVER_MISSING ->
-                ClientAvailabilityIssue.SERVER_MISSING
-            org.lolicode.moemusic.clientcore.playback.AvailabilityIssue.SERVER_REJECTED ->
-                ClientAvailabilityIssue.SERVER_MISSING
+            AvailabilityIssue.SERVER_MISSING ->
+                ClientAvailabilityIssue.HANDSHAKE_UNAVAILABLE
+            AvailabilityIssue.SERVER_REJECTED ->
+                ClientAvailabilityIssue.REJECTED
         }
 
     override val configuredVolumePercent: Int
