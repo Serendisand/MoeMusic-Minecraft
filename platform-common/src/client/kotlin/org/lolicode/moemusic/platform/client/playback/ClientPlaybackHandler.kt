@@ -158,6 +158,8 @@ object ClientPlaybackHandler {
 
     fun syncParticipationWithCurrentConfig() = runtime.syncParticipationWithCurrentConfig()
 
+    fun refreshTrackNormalization() = runtime.refreshTrackNormalization()
+
     fun receiveFromServer(packetId: PacketId, payload: ByteArray) = runtime.receiveFromServer(packetId, payload)
 
     fun handlePlaybackSnapshotPush(msg: PlaybackSnapshotPush) = runtime.handlePlaybackSnapshotPush(msg)
@@ -353,6 +355,10 @@ object ClientPlaybackHandler {
 
         override fun stop() {
             ClientAudioPlayer.stop()
+        }
+
+        override fun setNormalizationGain(gain: Float) {
+            ClientAudioPlayer.setNormalizationGain(gain)
         }
 
         override fun currentPositionMs(): Long =
