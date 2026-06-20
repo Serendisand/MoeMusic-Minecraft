@@ -634,6 +634,11 @@ object MusicCommands {
                 sendFailure(source, LocalizedText.key("error.moemusic.queue.remove_forbidden"))
                 0
             }
+
+            else -> {
+                sendFailure(source, LocalizedText.key("error.moemusic.internal"))
+                0
+            }
         }
     }
 
