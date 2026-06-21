@@ -72,6 +72,8 @@ val generateMoeMusicPlatformBuildInfo by tasks.registering {
 }
 
 loom {
+    // Dev-only logging override so shared/client debug logs are visible in Fabric run configs.
+    log4jConfigs.from(file("log4j-dev.xml"))
     splitEnvironmentSourceSets()
 
     mods {
