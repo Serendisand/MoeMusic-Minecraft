@@ -257,14 +257,18 @@ object MoeMusicConfigScreen {
 
         var newLoudnessNormalization = current.client.loudnessNormalization
         generalCategory.addEntry(
-            entryBuilder.startBooleanToggle(
-                McText.translatable("config.moemusic.client.loudness_normalization.enabled"),
-                current.client.loudnessNormalization.enabled,
+            entryBuilder.startEnumSelector(
+                McText.translatable("config.moemusic.client.loudness_normalization.mode"),
+                LoudnessNormalizationMode::class.java,
+                current.client.loudnessNormalization.mode,
             )
-                .setDefaultValue(defaultClient.loudnessNormalization.enabled)
-                .setTooltip(McText.translatable("config.moemusic.client.loudness_normalization.enabled.tooltip"))
-                .setSaveConsumer { enabled ->
-                    newLoudnessNormalization = newLoudnessNormalization.copy(enabled = enabled)
+                .setDefaultValue(defaultClient.loudnessNormalization.mode)
+                .setEnumNameProvider { value ->
+                    McText.translatable("config.moemusic.client.loudness_normalization.mode.${value.name.lowercase()}")
+                }
+                .setTooltip(McText.translatable("config.moemusic.client.loudness_normalization.mode.tooltip"))
+                .setSaveConsumer { mode ->
+                    newLoudnessNormalization = newLoudnessNormalization.copy(mode = mode)
                 }
                 .build()
         )
