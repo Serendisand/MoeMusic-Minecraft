@@ -182,8 +182,8 @@ class MusicCommandsCommandFormattingTest {
         override val id: String = id
         override val displayName: LocalizedText = LocalizedText.plain(id)
 
-        override suspend fun resolve(track: TrackInfo, submitter: MoeMusicUser?): PlaybackResource =
-            PlaybackResource("https://example.com/$id")
+        override suspend fun resolve(track: TrackInfo, submitter: MoeMusicUser?): PlaybackResolution =
+            PlaybackResolution(PlaybackResource("https://example.com/$id"))
 
         override suspend fun search(query: SearchQuery, submitter: MoeMusicUser?): UserResult<SearchResult> =
             UserResult.Success(SearchResult(entries = emptyList(), sourceId = id, total = 0))
@@ -193,8 +193,8 @@ class MusicCommandsCommandFormattingTest {
         override val id: String = id
         override val displayName: LocalizedText = LocalizedText.plain(id)
 
-        override suspend fun resolve(track: TrackInfo, submitter: MoeMusicUser?): PlaybackResource =
-            PlaybackResource("https://example.com/$id")
+        override suspend fun resolve(track: TrackInfo, submitter: MoeMusicUser?): PlaybackResolution =
+            PlaybackResolution(PlaybackResource("https://example.com/$id"))
     }
 
     private fun testUser(
