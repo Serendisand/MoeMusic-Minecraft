@@ -47,6 +47,7 @@ object ClientPlaybackHandler {
     interface GuiListener {
         fun onSearchSourcesChanged() {}
         fun onSearchResponse(response: SearchResponse) {}
+        fun onUiBootstrapResponse(response: UiBootstrapResponse) {}
         fun onTrackSubmitResponse(response: TrackSubmitResponse) {}
         fun onIdentifierSubmitResponse(response: IdentifierSubmitResponse) {}
         fun onSelectionSubmitResponse(response: SelectionSubmitResponse) {}
@@ -85,6 +86,12 @@ object ClientPlaybackHandler {
 
     val lastQueueResponse: QueueResponse?
         get() = runtime.lastQueueResponse
+
+    val lastUiBootstrapResponse: UiBootstrapResponse?
+        get() = runtime.lastUiBootstrapResponse
+
+    val uiCapabilitySnapshot: UiCapabilitySnapshot?
+        get() = runtime.uiCapabilitySnapshot
 
     val lastTrackSubmitResponse: TrackSubmitResponse?
         get() = runtime.lastTrackSubmitResponse
@@ -172,6 +179,8 @@ object ClientPlaybackHandler {
 
     fun handleSearchResponse(msg: SearchResponse) = runtime.handleSearchResponse(msg)
 
+    fun handleUiBootstrapResponse(msg: UiBootstrapResponse) = runtime.handleUiBootstrapResponse(msg)
+
     fun handleTrackSubmitResponse(msg: TrackSubmitResponse) = runtime.handleTrackSubmitResponse(msg)
 
     fun handleIdentifierSubmitResponse(msg: IdentifierSubmitResponse) = runtime.handleIdentifierSubmitResponse(msg)
@@ -198,6 +207,8 @@ object ClientPlaybackHandler {
         runtime.beginSearchRequest(query, sourceId, limit, offset)
 
     fun sendQueueRequest(): Long? = runtime.sendQueueRequest()
+
+    fun sendUiBootstrapRequest(): Long? = runtime.sendUiBootstrapRequest()
 
     internal fun beginQueueRequest(): Deferred<QueueResponse>? =
         runtime.beginQueueRequest()
@@ -376,6 +387,10 @@ object ClientPlaybackHandler {
 
         override fun onSearchResponse(response: SearchResponse) {
             guiListener?.onSearchResponse(response)
+        }
+
+        override fun onUiBootstrapResponse(response: UiBootstrapResponse) {
+            guiListener?.onUiBootstrapResponse(response)
         }
 
         override fun onTrackSubmitResponse(response: TrackSubmitResponse) {
