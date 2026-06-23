@@ -155,6 +155,7 @@ class MusicPlayerScreen : Screen(TITLE), ClientPlaybackHandler.GuiListener {
     private var queueHiddenCount = 0
     private var queueScrollOffset = 0
     private var pendingQueueRequestId: Long? = null
+    private var pendingUiBootstrapRequestId: Long? = null
     private var pendingTrackSubmitOrigin: TrackListVariant? = null
     private var pendingTrackSubmitRequestId: Long? = null
     private var pendingIdentifierSubmitRequestId: Long? = null
@@ -274,16 +275,16 @@ class MusicPlayerScreen : Screen(TITLE), ClientPlaybackHandler.GuiListener {
         syncSelectedSearchSource(ClientPlaybackHandler.cachedSearchState?.sourceId)
         restoreCachedSearchState()
         ClientPlaybackHandler.lastQueueResponse?.let { resp ->
-            rawQueueTracks = resp.tracks.map { it.toApi() }
-            applyClientQueueFilter()
-            queueError = resp.failure.ifEmpty { null }
+            applyQueueSnapshot(resp.tracks.map { it.toApi() }, resp.failure.ifEmpty { null })
+        } ?: ClientPlaybackHandler.lastUiBootstrapResponse?.let { resp ->
+            applyQueueSnapshot(resp.tracks.map { it.toApi() }, resp.failure.ifEmpty { null })
         }
         ClientPlaybackHandler.lastTrackSubmitResponse?.let(::onTrackSubmitResponse)
         ClientPlaybackHandler.lastQueueRemoveResponse?.let(::onQueueRemoveResponse)
         ClientPlaybackHandler.lastPlaybackControlResponse?.let(::onPlaybackControlResponse)
         onInstancePlaybackStandby(ClientPlaybackHandler.lastInstanceLockMessage)
 
-        pendingQueueRequestId = ClientPlaybackHandler.sendQueueRequest()
+        pendingUiBootstrapRequestId = ClientPlaybackHandler.sendUiBootstrapRequest()
         rebuildScreenWidgets()
     }
 
@@ -512,6 +513,9 @@ class MusicPlayerScreen : Screen(TITLE), ClientPlaybackHandler.GuiListener {
         return searchableSources().firstOrNull { it.id == sourceId }
     }
 
+    private fun canSubmitDuplicate(): Boolean =
+        ClientPlaybackHandler.uiCapabilitySnapshot?.can_submit_duplicate == true
+
     private fun selectSearchSource(sourceId: String) {
         val validSource = searchableSources().firstOrNull { it.id == sourceId } ?: return
         val changed = selectedSearchSourceId != validSource.id
@@ -546,12 +550,19 @@ class MusicPlayerScreen : Screen(TITLE), ClientPlaybackHandler.GuiListener {
         isSearchEntryAlreadyQueued(entry) || isSearchEntryCurrent(entry)
 
     private fun isSearchEntrySelectable(entry: SelectionEntry): Boolean =
-        entry.isSelectable && (!entry.isDirectTrack || !isSearchEntryDuplicate(entry))
+        entry.isSelectable && (!entry.isDirectTrack || !isSearchEntryDuplicate(entry) || canSubmitDuplicate())
 
     private fun isSearchEntryPlayNowAllowed(entry: SelectionEntry): Boolean = entry.isSelectable
 
     private fun sourceDisplayName(sourceId: String?): String =
         sourceId?.takeIf { it.isNotBlank() }?.let(ClientPlaybackHandler::sourceDisplayName).orEmpty()
+
+    private fun applyQueueSnapshot(tracks: List<TrackInfo>, failure: String?) {
+        rawQueueTracks = tracks
+        queueError = failure
+        applyClientQueueFilter()
+        cacheSearchState()
+    }
 
     private fun cacheSearchState() {
         val state = if (searchQuery.isBlank() && searchResults.isEmpty() && searchError.isNullOrBlank()) {
@@ -1814,7 +1825,7 @@ class MusicPlayerScreen : Screen(TITLE), ClientPlaybackHandler.GuiListener {
                             if (!entry.isSelectable) {
                                 searchActionSuccess = null
                                 searchActionError = renderUnavailable(entry)
-                            } else if (entry.isDirectTrack && isSearchEntryDuplicate(entry)) {
+                            } else if (entry.isDirectTrack && isSearchEntryDuplicate(entry) && !canSubmitDuplicate()) {
                                 searchActionSuccess = null
                                 searchActionError = tr("error.moemusic.already_queued")
                             } else {
@@ -1833,7 +1844,7 @@ class MusicPlayerScreen : Screen(TITLE), ClientPlaybackHandler.GuiListener {
                             if (!entry.isSelectable) {
                                 searchActionSuccess = null
                                 searchActionError = renderUnavailable(entry)
-                            } else if (entry.isDirectTrack && isSearchEntryDuplicate(entry)) {
+                            } else if (entry.isDirectTrack && isSearchEntryDuplicate(entry) && !canSubmitDuplicate()) {
                                 searchActionSuccess = null
                                 searchActionError = tr("error.moemusic.already_queued")
                             } else {
@@ -2539,15 +2550,25 @@ class MusicPlayerScreen : Screen(TITLE), ClientPlaybackHandler.GuiListener {
             rowActionMenu = null
             rowActionMenuLayout = null
             pendingQueueRequestId = null
-            queueError = response.failure.ifEmpty { null }
             if (response.failure.isEmpty()) {
-                rawQueueTracks = response.tracks.map { it.toApi() }
-                applyClientQueueFilter()
-                cacheSearchState()
+                applyQueueSnapshot(response.tracks.map { it.toApi() }, null)
+            } else {
+                queueError = response.failure
             }
             if (currentTab == Tab.QUEUE) {
                 rebuildScreenWidgets()
             }
+        }
+    }
+
+    override fun onUiBootstrapResponse(response: UiBootstrapResponse) {
+        Minecraft.getInstance().execute {
+            if (pendingUiBootstrapRequestId != null && pendingUiBootstrapRequestId != response.request_id) return@execute
+            rowActionMenu = null
+            rowActionMenuLayout = null
+            pendingUiBootstrapRequestId = null
+            applyQueueSnapshot(response.tracks.map { it.toApi() }, response.failure.ifEmpty { null })
+            rebuildScreenWidgets()
         }
     }
 
