@@ -24,6 +24,7 @@ import org.lolicode.moemusic.core.protocol.proto.StateUpdate
 import org.lolicode.moemusic.core.protocol.proto.SyncRequest
 import org.lolicode.moemusic.core.protocol.proto.SyncResponse
 import org.lolicode.moemusic.core.protocol.proto.TrackSubmitResponse
+import org.lolicode.moemusic.core.protocol.proto.UiBootstrapResponse
 import org.lolicode.moemusic.platform.client.playback.ClientPlaybackHandler
 import org.slf4j.LoggerFactory
 import kotlin.time.Duration.Companion.milliseconds
@@ -68,6 +69,7 @@ object ClientNetworkSetup {
             PacketIds.STATE_UPDATE,
             PacketIds.SEARCH_RESPONSE,
             PacketIds.QUEUE_RESPONSE,
+            PacketIds.UI_BOOTSTRAP_RESPONSE,
             PacketIds.QUEUE_REMOVE_RESPONSE,
             PacketIds.PLAYBACK_CONTROL_RESPONSE,
             PacketIds.CONTENT_FILTER_ACTION_RESPONSE,
@@ -83,6 +85,7 @@ object ClientNetworkSetup {
             PacketIds.SELECTION_SUBMIT,
             PacketIds.SEARCH_REQUEST,
             PacketIds.QUEUE_REQUEST,
+            PacketIds.UI_BOOTSTRAP_REQUEST,
             PacketIds.QUEUE_REMOVE_REQUEST,
             PacketIds.PLAYBACK_CONTROL_REQUEST,
             PacketIds.CONTENT_FILTER_ACTION_REQUEST,
@@ -132,6 +135,11 @@ object ClientNetworkSetup {
         registerReceiver(PacketIds.QUEUE_RESPONSE) { buf ->
             val bytes = ByteArray(buf.readableBytes()).also { buf.readBytes(it) }
             ClientPlaybackHandler.handleQueueResponse(QueueResponse.ADAPTER.decode(bytes))
+        }
+
+        registerReceiver(PacketIds.UI_BOOTSTRAP_RESPONSE) { buf ->
+            val bytes = ByteArray(buf.readableBytes()).also { buf.readBytes(it) }
+            ClientPlaybackHandler.handleUiBootstrapResponse(UiBootstrapResponse.ADAPTER.decode(bytes))
         }
 
         registerReceiver(PacketIds.QUEUE_REMOVE_RESPONSE) { buf ->
