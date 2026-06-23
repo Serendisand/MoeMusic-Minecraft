@@ -365,6 +365,14 @@ class MusicPlayerScreen : Screen(TITLE), ClientPlaybackHandler.GuiListener {
         sourceId: String,
         offset: Int,
     ) {
+        if (!canSearch()) {
+            searchLoading = false
+            searchError = tr("error.moemusic.permission.search")
+            searchActionError = null
+            searchActionSuccess = null
+            pendingSearchRequestId = null
+            return
+        }
         val normalizedOffset = offset.coerceAtLeast(0)
         searchLoading = true
         searchActionError = null
@@ -406,7 +414,8 @@ class MusicPlayerScreen : Screen(TITLE), ClientPlaybackHandler.GuiListener {
     }
 
     private fun canLoadMoreSearchResults(): Boolean =
-        !searchLoading &&
+        canSearch() &&
+                !searchLoading &&
                 searchQuery.isNotBlank() &&
                 searchHasMore &&
                 searchResultSourceId.isNotBlank() &&
@@ -513,8 +522,68 @@ class MusicPlayerScreen : Screen(TITLE), ClientPlaybackHandler.GuiListener {
         return searchableSources().firstOrNull { it.id == sourceId }
     }
 
+    private fun uiPermissionOrDefault(selector: UiCapabilitySnapshot.() -> Boolean): Boolean =
+        ClientPlaybackHandler.uiCapabilitySnapshot?.run(selector) != false
+
+    private fun hasSearchPermission(): Boolean = uiPermissionOrDefault { has_search_permission }
+
+    private fun hasQueueViewPermission(): Boolean = uiPermissionOrDefault { has_queue_view_permission }
+
+    private fun hasSubmitPermission(): Boolean = uiPermissionOrDefault { has_submit_permission }
+
+    private fun hasSubmitSkipAutoplayPermission(): Boolean =
+        uiPermissionOrDefault { has_submit_skip_autoplay_permission }
+
+    private fun hasQueueControlPermission(): Boolean = uiPermissionOrDefault { has_queue_control_permission }
+
+    private fun hasVotePermission(): Boolean = uiPermissionOrDefault { has_vote_permission }
+
+    private fun hasPlaybackControlPermission(): Boolean =
+        uiPermissionOrDefault { has_playback_control_permission }
+
+    private fun hasContentFilterManagePermission(): Boolean =
+        uiPermissionOrDefault { has_content_filter_manage_permission }
+
     private fun canSubmitDuplicate(): Boolean =
-        ClientPlaybackHandler.uiCapabilitySnapshot?.can_submit_duplicate == true
+        ClientPlaybackHandler.uiCapabilitySnapshot?.has_submit_duplicate_permission == true
+
+    private fun canSearch(): Boolean = hasSearchPermission()
+
+    private fun canViewQueue(): Boolean = hasQueueViewPermission()
+
+    private fun canSubmit(): Boolean = hasSubmitPermission()
+
+    private fun canSubmitSkipAutoplay(): Boolean =
+        hasSubmitPermission() && hasSubmitSkipAutoplayPermission()
+
+    private fun canPlayNow(): Boolean = hasSubmitPermission() && hasQueueControlPermission()
+
+    private fun canSkipPlayback(): Boolean = hasQueueControlPermission() || hasVotePermission()
+
+    private fun canControlPlayback(): Boolean = hasPlaybackControlPermission()
+
+    private fun canManageServerFilter(): Boolean = hasContentFilterManagePermission()
+
+    private fun canUseAddMode(mode: TrackAddMode): Boolean = when (mode) {
+        TrackAddMode.NORMAL -> canSubmit()
+        TrackAddMode.SKIP_AUTOPLAY -> canSubmitSkipAutoplay()
+        TrackAddMode.PLAY_NOW -> canPlayNow()
+    }
+
+    private fun availableAddModes(): List<TrackAddMode> =
+        listOf(TrackAddMode.NORMAL, TrackAddMode.SKIP_AUTOPLAY, TrackAddMode.PLAY_NOW).filter(::canUseAddMode)
+
+    private fun normalizeAddMode(
+        mode: TrackAddMode,
+        allowedModes: List<TrackAddMode> = availableAddModes(),
+    ): TrackAddMode =
+        allowedModes.firstOrNull { it == mode } ?: allowedModes.firstOrNull() ?: TrackAddMode.NORMAL
+
+    private fun permissionErrorForAddMode(mode: TrackAddMode): String = when (mode) {
+        TrackAddMode.NORMAL -> tr("error.moemusic.permission.submit")
+        TrackAddMode.SKIP_AUTOPLAY -> tr("error.moemusic.permission.submit_skip_autoplay")
+        TrackAddMode.PLAY_NOW -> tr("error.moemusic.permission.queue_control")
+    }
 
     private fun selectSearchSource(sourceId: String) {
         val validSource = searchableSources().firstOrNull { it.id == sourceId } ?: return
@@ -552,7 +621,11 @@ class MusicPlayerScreen : Screen(TITLE), ClientPlaybackHandler.GuiListener {
     private fun isSearchEntrySelectable(entry: SelectionEntry): Boolean =
         entry.isSelectable && (!entry.isDirectTrack || !isSearchEntryDuplicate(entry) || canSubmitDuplicate())
 
-    private fun isSearchEntryPlayNowAllowed(entry: SelectionEntry): Boolean = entry.isSelectable
+    private fun isSearchEntryActionAllowed(entry: SelectionEntry, mode: TrackAddMode): Boolean =
+        canUseAddMode(mode) && isSearchEntrySelectable(entry)
+
+    private fun isSearchEntryPlayNowAllowed(entry: SelectionEntry): Boolean =
+        isSearchEntryActionAllowed(entry, TrackAddMode.PLAY_NOW)
 
     private fun sourceDisplayName(sourceId: String?): String =
         sourceId?.takeIf { it.isNotBlank() }?.let(ClientPlaybackHandler::sourceDisplayName).orEmpty()
@@ -723,6 +796,9 @@ class MusicPlayerScreen : Screen(TITLE), ClientPlaybackHandler.GuiListener {
 
         val ctx = ClientPlaybackHandler.currentContext
         val isPaused = ctx?.state is PlaybackState.Paused
+        val allowedAddModes = availableAddModes()
+        addIdentifierMode = normalizeAddMode(addIdentifierMode, allowedAddModes)
+        val canQuickAdd = allowedAddModes.isNotEmpty()
 
         val addButtonW = 42
         val addButtonGap = 4
@@ -750,27 +826,35 @@ class MusicPlayerScreen : Screen(TITLE), ClientPlaybackHandler.GuiListener {
         box.setMaxLength(512)
         box.setHintCompat(McText.translatable("screen.moemusic.quick_add.hint"))
         box.value = addIdentifierInputText
+        box.active = canQuickAdd
         addIdentifierEditBox = box
         addRenderableWidget(box)
 
-        addRenderableWidget(button(modeButtonX, quickAddLayout.addBoxY, modeButtonW, 16, McText.literal(addModeLabel(addIdentifierMode))) {
+        val modeButton = button(modeButtonX, quickAddLayout.addBoxY, modeButtonW, 16, McText.literal(addModeLabel(addIdentifierMode))) {
             addIdentifierMode = nextAddMode(addIdentifierMode)
             rebuildScreenWidgets()
-        })
+        }
+        modeButton.active = allowedAddModes.size > 1
+        addRenderableWidget(modeButton)
 
-        addRenderableWidget(button(addButtonX, quickAddLayout.addBoxY, addButtonW, 16, McText.translatable("screen.moemusic.quick_add.add")) {
+        val addButton = button(addButtonX, quickAddLayout.addBoxY, addButtonW, 16, McText.translatable("screen.moemusic.quick_add.add")) {
             val identifier = addIdentifierEditBox?.value?.trim().orEmpty()
-            if (identifier.isNotEmpty()) {
+            if (!canUseAddMode(addIdentifierMode)) {
+                addIdentifierSuccess = null
+                addIdentifierError = permissionErrorForAddMode(addIdentifierMode)
+            } else if (identifier.isNotEmpty()) {
                 addIdentifierInputText = identifier
                 addIdentifierError = null
                 addIdentifierSuccess = null
                 pendingIdentifierSubmitRequestId = ClientPlaybackHandler.sendIdentifierSubmit(identifier, addIdentifierMode)
             }
-        })
+        }
+        addButton.active = canQuickAdd
+        addRenderableWidget(addButton)
 
         val playLabelKey =
             if (isPaused || ctx == null) "screen.moemusic.control.resume" else "screen.moemusic.control.pause"
-        addRenderableWidget(button(playPauseButtonX, btnY, btnW, btnH, McText.translatable(playLabelKey)) {
+        val playPauseButton = button(playPauseButtonX, btnY, btnW, btnH, McText.translatable(playLabelKey)) {
             playbackError = null
             playbackSuccess = null
             pendingPlaybackControlRequestId =
@@ -779,19 +863,25 @@ class MusicPlayerScreen : Screen(TITLE), ClientPlaybackHandler.GuiListener {
                 } else {
                     ClientPlaybackHandler.sendPlaybackControl(PlaybackControlAction.PAUSE)
                 }
-        })
+        }
+        playPauseButton.active = canControlPlayback()
+        addRenderableWidget(playPauseButton)
 
-        addRenderableWidget(button(skipButtonX, btnY, btnW, btnH, McText.translatable("screen.moemusic.control.skip")) {
+        val skipButton = button(skipButtonX, btnY, btnW, btnH, McText.translatable("screen.moemusic.control.skip")) {
             playbackError = null
             playbackSuccess = null
             pendingPlaybackControlRequestId = ClientPlaybackHandler.sendPlaybackControl(PlaybackControlAction.SKIP)
-        })
+        }
+        skipButton.active = canSkipPlayback()
+        addRenderableWidget(skipButton)
 
-        addRenderableWidget(button(stopButtonX, btnY, btnW, btnH, McText.translatable("screen.moemusic.control.stop")) {
+        val stopButton = button(stopButtonX, btnY, btnW, btnH, McText.translatable("screen.moemusic.control.stop")) {
             playbackError = null
             playbackSuccess = null
             pendingPlaybackControlRequestId = ClientPlaybackHandler.sendPlaybackControl(PlaybackControlAction.STOP)
-        })
+        }
+        stopButton.active = canControlPlayback()
+        addRenderableWidget(stopButton)
     }
 
     private fun addSearchWidgets() {
@@ -803,7 +893,8 @@ class MusicPlayerScreen : Screen(TITLE), ClientPlaybackHandler.GuiListener {
         val editX = searchSourceX + searchSourceW + controlGap
         val editW = (width - margin - searchBtnW - controlGap - editX).coerceAtLeast(40)
         val hasSearchableSources = searchableSources().isNotEmpty()
-        if (!hasSearchableSources) {
+        val canUseSearch = hasSearchableSources && canSearch()
+        if (!canUseSearch) {
             searchSourceDropdownOpen = false
         }
 
@@ -821,12 +912,12 @@ class MusicPlayerScreen : Screen(TITLE), ClientPlaybackHandler.GuiListener {
                 )
             )
         ) {
-            if (hasSearchableSources) {
+            if (canUseSearch) {
                 searchSourceDropdownOpen = !searchSourceDropdownOpen
                 rebuildScreenWidgets()
             }
         }
-        sourceButton.active = hasSearchableSources
+        sourceButton.active = canUseSearch
         addRenderableWidget(sourceButton)
 
         val box = editBox(
@@ -840,6 +931,7 @@ class MusicPlayerScreen : Screen(TITLE), ClientPlaybackHandler.GuiListener {
         box.setMaxLength(128)
         box.setHintCompat(McText.translatable("screen.moemusic.search.field_hint"))
         box.value = searchInputText
+        box.active = canUseSearch
         searchEditBox = box
         addRenderableWidget(box)
 
@@ -850,7 +942,7 @@ class MusicPlayerScreen : Screen(TITLE), ClientPlaybackHandler.GuiListener {
                 submitSearch(q)
             }
         }
-        searchButton.active = hasSearchableSources
+        searchButton.active = canUseSearch
         addRenderableWidget(searchButton)
 
         val searchUpButton = button(controller.x, controller.upButtonY, controller.width, listControllerBtnH, McText.literal("▲")) {
@@ -868,11 +960,13 @@ class MusicPlayerScreen : Screen(TITLE), ClientPlaybackHandler.GuiListener {
 
     private fun addQueueWidgets() {
         val controller = listControllerLayout(TrackListVariant.QUEUE)
-        addRenderableWidget(button(margin, contentY, 60, 16, McText.translatable("screen.moemusic.queue.refresh")) {
+        val refreshButton = button(margin, contentY, 60, 16, McText.translatable("screen.moemusic.queue.refresh")) {
             queueError = null
             queueSuccess = null
             pendingQueueRequestId = ClientPlaybackHandler.sendQueueRequest()
-        })
+        }
+        refreshButton.active = canViewQueue()
+        addRenderableWidget(refreshButton)
 
         val queueUpButton = button(controller.x, controller.upButtonY, controller.width, listControllerBtnH, McText.literal("▲")) {
             queueScrollOffset = (queueScrollOffset - 1).coerceAtLeast(0)
@@ -1064,12 +1158,14 @@ class MusicPlayerScreen : Screen(TITLE), ClientPlaybackHandler.GuiListener {
             context.fill(seekBarX, seekY, seekBarX + filled, seekY + seekBarH, progressColor)
         }
 
-        val knobX = (seekBarX + filled).coerceIn(seekBarX, seekBarX + seekBarW)
-        context.fill(knobX - 1, seekY - 1, knobX + 2, seekY + seekBarH + 1, 0xFFFFFFFF.toInt())
-
-        if (mouseX in seekBarX..(seekBarX + seekBarW) && mouseY in (seekY - 2)..(seekY + seekBarH + 2)) {
+        if (!canControlPlayback()) {
+            context.fill(seekBarX, seekY, seekBarX + seekBarW, seekY + seekBarH, 0x55000000)
+        } else if (mouseX in seekBarX..(seekBarX + seekBarW) && mouseY in (seekY - 2)..(seekY + seekBarH + 2)) {
             context.fill(seekBarX, seekY, seekBarX + seekBarW, seekY + seekBarH, 0x22FFFFFF)
         }
+
+        val knobX = (seekBarX + filled).coerceIn(seekBarX, seekBarX + seekBarW)
+        context.fill(knobX - 1, seekY - 1, knobX + 2, seekY + seekBarH + 1, 0xFFFFFFFF.toInt())
     }
 
     private fun renderQuickAddHeader(context: GuiGraphics, quickAddLayout: QuickAddLayout) {
@@ -1131,6 +1227,7 @@ class MusicPlayerScreen : Screen(TITLE), ClientPlaybackHandler.GuiListener {
             )
         } else if (searchResults.isEmpty() && !searchSourceDropdownOpen) {
             val emptyMessage = when {
+                !canSearch() -> tr("error.moemusic.permission.search")
                 searchLoading -> tr("screen.moemusic.search.loading")
                 searchHiddenCount > 0 -> tr("screen.moemusic.search.filtered_empty", searchHiddenCount)
                 else -> tr("screen.moemusic.search.empty_hint")
@@ -1145,8 +1242,8 @@ class MusicPlayerScreen : Screen(TITLE), ClientPlaybackHandler.GuiListener {
                 scrollOffset = searchScrollOffset,
                 totalCount = effectiveSearchTotalCount(),
                 variant = TrackListVariant.SEARCH,
-                primaryActionEnabled = { isSearchEntrySelectable(it) },
-                secondaryActionEnabled = { isSearchEntrySelectable(it) },
+                primaryActionEnabled = { isSearchEntryActionAllowed(it, TrackAddMode.NORMAL) },
+                secondaryActionEnabled = { isSearchEntryActionAllowed(it, TrackAddMode.SKIP_AUTOPLAY) },
                 primaryActionLabel = { "+" },
                 secondaryActionLabel = { "\u00BB" },
             )
@@ -1268,7 +1365,7 @@ class MusicPlayerScreen : Screen(TITLE), ClientPlaybackHandler.GuiListener {
                 scrollOffset = queueScrollOffset,
                 variant = TrackListVariant.QUEUE,
                 listStartY = startY,
-                primaryActionEnabled = { it.isAvailable },
+                primaryActionEnabled = { it.isAvailable && canPlayNow() },
                 secondaryActionEnabled = { true },
                 primaryActionLabel = { "\u25B6" },
                 secondaryActionLabel = { "\u2715" },
@@ -1822,7 +1919,10 @@ class MusicPlayerScreen : Screen(TITLE), ClientPlaybackHandler.GuiListener {
                         rowHeight = searchRowH,
                         onPrimaryAction = { idx ->
                             val entry = searchResults[idx]
-                            if (!entry.isSelectable) {
+                            if (!canUseAddMode(TrackAddMode.NORMAL)) {
+                                searchActionSuccess = null
+                                searchActionError = permissionErrorForAddMode(TrackAddMode.NORMAL)
+                            } else if (!entry.isSelectable) {
                                 searchActionSuccess = null
                                 searchActionError = renderUnavailable(entry)
                             } else if (entry.isDirectTrack && isSearchEntryDuplicate(entry) && !canSubmitDuplicate()) {
@@ -1841,7 +1941,10 @@ class MusicPlayerScreen : Screen(TITLE), ClientPlaybackHandler.GuiListener {
                         },
                         onSecondaryAction = { idx ->
                             val entry = searchResults[idx]
-                            if (!entry.isSelectable) {
+                            if (!canUseAddMode(TrackAddMode.SKIP_AUTOPLAY)) {
+                                searchActionSuccess = null
+                                searchActionError = permissionErrorForAddMode(TrackAddMode.SKIP_AUTOPLAY)
+                            } else if (!entry.isSelectable) {
                                 searchActionSuccess = null
                                 searchActionError = renderUnavailable(entry)
                             } else if (entry.isDirectTrack && isSearchEntryDuplicate(entry) && !canSubmitDuplicate()) {
@@ -1891,11 +1994,20 @@ class MusicPlayerScreen : Screen(TITLE), ClientPlaybackHandler.GuiListener {
                     rowHeight = queueRowH,
                     listStartY = queueListStartY(),
                     onPrimaryAction = { idx ->
-                        pendingTrackSubmitOrigin = TrackListVariant.QUEUE
-                        pendingTrackSubmitRequestId = null
-                        queueError = null
-                        queueSuccess = null
-                        pendingTrackSubmitRequestId = ClientPlaybackHandler.sendTrackSubmit(queueTracks[idx], TrackAddMode.PLAY_NOW)
+                        val track = queueTracks[idx]
+                        if (!canPlayNow()) {
+                            queueSuccess = null
+                            queueError = permissionErrorForAddMode(TrackAddMode.PLAY_NOW)
+                        } else if (!track.isAvailable) {
+                            queueSuccess = null
+                            queueError = renderUnavailable(track)
+                        } else {
+                            pendingTrackSubmitOrigin = TrackListVariant.QUEUE
+                            pendingTrackSubmitRequestId = null
+                            queueError = null
+                            queueSuccess = null
+                            pendingTrackSubmitRequestId = ClientPlaybackHandler.sendTrackSubmit(track, TrackAddMode.PLAY_NOW)
+                        }
                     },
                     onSecondaryAction = { idx ->
                         queueError = null
@@ -2017,6 +2129,7 @@ class MusicPlayerScreen : Screen(TITLE), ClientPlaybackHandler.GuiListener {
     }
 
     private fun handleSeekClick(mx: Int, my: Int, pressed: Boolean): Boolean {
+        if (!canControlPlayback()) return false
         val seekBarH = 6
         val seekY = seekBarY()
 
@@ -2239,13 +2352,18 @@ class MusicPlayerScreen : Screen(TITLE), ClientPlaybackHandler.GuiListener {
         buildList {
             if (origin == TrackListVariant.SEARCH && isSearchEntryPlayNowAllowed(entry)) {
                 add(RowActionMenuOption(tr("screen.moemusic.search.menu.play_now")) {
-                    searchActionError = null
-                    searchActionSuccess = null
-                    if (entry.isDirectTrack) {
-                        pendingTrackSubmitOrigin = TrackListVariant.SEARCH
-                        pendingTrackSubmitRequestId = ClientPlaybackHandler.sendTrackSubmit(entry, TrackAddMode.PLAY_NOW)
+                    if (!canUseAddMode(TrackAddMode.PLAY_NOW)) {
+                        searchActionSuccess = null
+                        searchActionError = permissionErrorForAddMode(TrackAddMode.PLAY_NOW)
                     } else {
-                        pendingSelectionSubmitRequestId = ClientPlaybackHandler.sendSelectionSubmit(entry, TrackAddMode.PLAY_NOW)
+                        searchActionError = null
+                        searchActionSuccess = null
+                        if (entry.isDirectTrack) {
+                            pendingTrackSubmitOrigin = TrackListVariant.SEARCH
+                            pendingTrackSubmitRequestId = ClientPlaybackHandler.sendTrackSubmit(entry, TrackAddMode.PLAY_NOW)
+                        } else {
+                            pendingSelectionSubmitRequestId = ClientPlaybackHandler.sendSelectionSubmit(entry, TrackAddMode.PLAY_NOW)
+                        }
                     }
                 })
             }
@@ -2307,28 +2425,30 @@ class MusicPlayerScreen : Screen(TITLE), ClientPlaybackHandler.GuiListener {
                         )
                     }
                 )
-                add(
-                    RowActionMenuOption(tr("screen.moemusic.filter.menu.server_ban_track")) {
-                        sendServerTrackFilterAction(
-                            sourceId = normalizedSourceId,
-                            trackId = exactTrackId,
-                            note = trackNote,
-                            ban = true,
-                            origin = origin,
-                        )
-                    }
-                )
-                add(
-                    RowActionMenuOption(tr("screen.moemusic.filter.menu.server_unban_track")) {
-                        sendServerTrackFilterAction(
-                            sourceId = normalizedSourceId,
-                            trackId = exactTrackId,
-                            note = trackNote,
-                            ban = false,
-                            origin = origin,
-                        )
-                    }
-                )
+                if (canManageServerFilter()) {
+                    add(
+                        RowActionMenuOption(tr("screen.moemusic.filter.menu.server_ban_track")) {
+                            sendServerTrackFilterAction(
+                                sourceId = normalizedSourceId,
+                                trackId = exactTrackId,
+                                note = trackNote,
+                                ban = true,
+                                origin = origin,
+                            )
+                        }
+                    )
+                    add(
+                        RowActionMenuOption(tr("screen.moemusic.filter.menu.server_unban_track")) {
+                            sendServerTrackFilterAction(
+                                sourceId = normalizedSourceId,
+                                trackId = exactTrackId,
+                                note = trackNote,
+                                ban = false,
+                                origin = origin,
+                            )
+                        }
+                    )
+                }
             }
         }
     }
@@ -2368,6 +2488,11 @@ class MusicPlayerScreen : Screen(TITLE), ClientPlaybackHandler.GuiListener {
         ban: Boolean,
         origin: TrackListVariant,
     ) {
+        if (!canManageServerFilter()) {
+            setFilterNotice(origin, success = null, error = serverFilterNotice(tr("error.moemusic.permission.content_filter_manage")))
+            rebuildScreenWidgets()
+            return
+        }
         pendingServerFilterOrigin = origin
         setFilterNotice(origin, success = null, error = null)
         pendingContentFilterActionRequestId = ClientPlaybackHandler.sendContentFilterTrackAction(sourceId, trackId, note, ban)
@@ -2666,10 +2791,12 @@ class MusicPlayerScreen : Screen(TITLE), ClientPlaybackHandler.GuiListener {
     // Utilities
     // -------------------------------------------------------------------------
 
-    private fun nextAddMode(mode: TrackAddMode): TrackAddMode = when (mode) {
-        TrackAddMode.NORMAL -> TrackAddMode.SKIP_AUTOPLAY
-        TrackAddMode.SKIP_AUTOPLAY -> TrackAddMode.PLAY_NOW
-        TrackAddMode.PLAY_NOW -> TrackAddMode.NORMAL
+    private fun nextAddMode(mode: TrackAddMode): TrackAddMode {
+        val allowedModes = availableAddModes()
+        if (allowedModes.isEmpty()) return mode
+        val normalizedMode = normalizeAddMode(mode, allowedModes)
+        val currentIndex = allowedModes.indexOf(normalizedMode)
+        return allowedModes[(currentIndex + 1) % allowedModes.size]
     }
 
     private fun isConfirmKey(key: Int): Boolean = key == 257 || key == 335
