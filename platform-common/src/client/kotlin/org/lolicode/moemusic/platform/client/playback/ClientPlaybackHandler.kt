@@ -2,6 +2,7 @@ package org.lolicode.moemusic.platform.client.playback
 
 import kotlinx.coroutines.Deferred
 import net.minecraft.client.Minecraft
+import net.minecraft.world.level.storage.LevelResource
 import org.lolicode.moemusic.api.LocalizedText
 import org.lolicode.moemusic.api.event.UserParticipationState
 import org.lolicode.moemusic.api.model.*
@@ -127,9 +128,13 @@ object ClientPlaybackHandler {
 
         mc.singleplayerServer?.let { server ->
             val levelName = server.worldData.levelName.trim()
+            val levelId = server.getWorldPath(LevelResource.ROOT).normalize().fileName?.toString()?.trim().orEmpty()
+            val displayName = levelName.ifBlank { levelId.ifBlank { "Singleplayer" } }
+            val legacyKey = if (levelName.isBlank()) "singleplayer" else "singleplayer:${levelName.lowercase()}"
             return ClientServerScope(
-                key = if (levelName.isBlank()) "singleplayer" else "singleplayer:${levelName.lowercase()}",
-                displayName = levelName.ifBlank { "Singleplayer" },
+                key = if (levelId.isBlank()) legacyKey else "singleplayer-folder:${levelId.lowercase()}",
+                displayName = displayName,
+                keyAliases = setOf(legacyKey),
             )
         }
 
