@@ -41,7 +41,7 @@
 	],
 	"depends": {
 		"fabricloader": "*",
-		"minecraft": ">=26.1",
+		"minecraft": ">=26.2",
 		"java": ">=25",
 		"fabric-api": "*",
 		"fabric-language-kotlin": ">=1.11.0",
@@ -49,8 +49,8 @@
 
 	},
 	"suggests": {
-		"cloth-config": ">=26.0",
+		"cloth-config": ">=26.2",
 		"fabric-permissions-api-v0": ">=0.7.0",
-		"modmenu": ">17.999"
+		"modmenu": ">19.999"
 	}
 }

@@ -13,7 +13,7 @@ pluginManagement {
     }
 }
 
-rootProject.name = "moemusic-26.1"
+rootProject.name = "moemusic-26.2"
 
 val sharedBuildDir = file("../shared")
 val useCompositeShared =
