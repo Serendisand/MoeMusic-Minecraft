@@ -57,6 +57,9 @@ object ClientPlaybackHandler {
         fun onPlaybackControlResponse(response: PlaybackControlResponse) {}
         fun onContentFilterActionResponse(response: ContentFilterActionResponse) {}
         fun onLocalPlaybackBlocked(message: String) {}
+        fun onLocalPlaybackRetrying(message: String) {}
+        fun onLocalPlaybackRecovered(track: TrackInfo) {}
+        fun onLocalPlaybackFailed(message: String) {}
         fun onInstancePlaybackStandby(message: String?) {}
         fun onPlaybackStateChanged() {}
     }
@@ -108,6 +111,9 @@ object ClientPlaybackHandler {
 
     val lastLocalPlaybackBlockedMessage: String?
         get() = runtime.lastLocalPlaybackBlockedMessage
+
+    val lastLocalPlaybackFailureMessage: String?
+        get() = runtime.lastLocalPlaybackFailureMessage
 
     val lastInstanceLockMessage: String?
         get() = runtime.lastInstanceLockMessage
@@ -342,6 +348,25 @@ object ClientPlaybackHandler {
             }
         }
 
+        override fun showLocalPlaybackFailed(title: LocalizedText, message: String) {
+            val minecraft = Minecraft.getInstance()
+            minecraft.execute {
+                showPersistentRuntimeWarning(
+                    minecraft,
+                    ClientLocalization.component(title),
+                    McText.literal(message),
+                )
+            }
+        }
+
+        override fun onLocalPlaybackFailureFinal(track: TrackInfo, message: String) {
+            val minecraft = Minecraft.getInstance()
+            if (minecraft.singleplayerServer == null) return
+            minecraft.execute {
+                ClientPlaybackHandler.sendPlaybackControl(PlaybackControlAction.SKIP)
+            }
+        }
+
         override fun showInstanceLockStandby(message: String) {
             if (ClientPlaybackHandler.guiListener != null) return
             val minecraft = Minecraft.getInstance()
@@ -361,8 +386,8 @@ object ClientPlaybackHandler {
     }
 
     private class MinecraftAudioAdapter : ClientPlaybackAudioAdapter {
-        override fun play(playback: PlaybackResource, seekMs: Long) {
-            ClientAudioPlayer.play(playback, seekMs)
+        override fun play(playback: PlaybackResource, seekMs: Long, onError: (String) -> Unit) {
+            ClientAudioPlayer.play(playback, seekMs, onError)
         }
 
         override fun pause() {
@@ -428,6 +453,18 @@ object ClientPlaybackHandler {
 
         override fun onLocalPlaybackBlocked(message: String) {
             guiListener?.onLocalPlaybackBlocked(message)
+        }
+
+        override fun onLocalPlaybackRetrying(message: String) {
+            guiListener?.onLocalPlaybackRetrying(message)
+        }
+
+        override fun onLocalPlaybackRecovered(track: TrackInfo) {
+            guiListener?.onLocalPlaybackRecovered(track)
+        }
+
+        override fun onLocalPlaybackFailed(message: String) {
+            guiListener?.onLocalPlaybackFailed(message)
         }
 
         override fun onInstancePlaybackStandby(message: String?) {
