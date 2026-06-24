@@ -2,6 +2,7 @@ package org.lolicode.moemusic.platform.client.audio
 
 import net.minecraft.client.sounds.SoundEngine
 import org.lolicode.moemusic.api.model.PlaybackResource
+import org.lolicode.moemusic.clientcore.audio.ClientAudioFailure
 import org.lolicode.moemusic.clientcore.audio.ClientAudioPlayerRuntime
 import org.lolicode.moemusic.clientcore.audio.LavaPlayerTrackLoader
 import org.lolicode.moemusic.clientcore.audio.PcmRingBuffer
@@ -41,7 +42,7 @@ object ClientAudioPlayer {
      *
      * Stops any current playback first. If [playback] fails to load, [onError] is called.
      */
-    fun play(playback: PlaybackResource, seekMs: Long = 0, onError: (String) -> Unit = {}) =
+    fun play(playback: PlaybackResource, seekMs: Long = 0, onError: (ClientAudioFailure) -> Unit = {}) =
         runtime.play(playback, seekMs, onError)
 
     /** Pause playback (freezes audio output; decoder continues buffering). */
