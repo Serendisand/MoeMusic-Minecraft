@@ -198,8 +198,8 @@ object NowPlayingHud {
         layout: Layout,
         textureId: Identifier,
     ) {
-        val shouldSpin = config.spinCover && ctx.state is PlaybackState.Playing
-        if (!shouldSpin) {
+        val shouldRotate = config.spinCover && ctx.state !is PlaybackState.Stopped
+        if (!shouldRotate) {
             gfx.blit(
                 RenderPipelines.GUI_TEXTURED,
                 textureId,
