@@ -193,7 +193,7 @@ object MoeMusicConfigScreen {
             generalCategory.addEntry(
                 entryBuilder.startBooleanToggle(
                     McText.translatable("config.moemusic.client.current_server_playback_enabled"),
-                    currentServerScope.key !in current.client.disabledServers,
+                    currentServerScope.matchingKeys().none { it in current.client.disabledServers },
                 )
                     .setDefaultValue(true)
                     .setTooltip(
@@ -204,9 +204,9 @@ object MoeMusicConfigScreen {
                     )
                     .setSaveConsumer { enabled ->
                         newDisabledServers = if (enabled) {
-                            newDisabledServers - currentServerScope.key
+                            newDisabledServers - currentServerScope.matchingKeys()
                         } else {
-                            (newDisabledServers + currentServerScope.key).distinct()
+                            (newDisabledServers - currentServerScope.matchingKeys() + currentServerScope.key).distinct()
                         }
                     }
                     .build()
