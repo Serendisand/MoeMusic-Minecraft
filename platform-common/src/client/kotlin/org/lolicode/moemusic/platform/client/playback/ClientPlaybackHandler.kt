@@ -6,6 +6,7 @@ import net.minecraft.world.level.storage.LevelResource
 import org.lolicode.moemusic.api.LocalizedText
 import org.lolicode.moemusic.api.event.UserParticipationState
 import org.lolicode.moemusic.api.model.*
+import org.lolicode.moemusic.clientcore.audio.ClientAudioFailure
 import org.lolicode.moemusic.clientcore.playback.*
 import org.lolicode.moemusic.core.config.ClientConfig
 import org.lolicode.moemusic.core.config.ModConfigManager
@@ -386,7 +387,7 @@ object ClientPlaybackHandler {
     }
 
     private class MinecraftAudioAdapter : ClientPlaybackAudioAdapter {
-        override fun play(playback: PlaybackResource, seekMs: Long, onError: (String) -> Unit) {
+        override fun play(playback: PlaybackResource, seekMs: Long, onError: (ClientAudioFailure) -> Unit) {
             ClientAudioPlayer.play(playback, seekMs, onError)
         }
 
