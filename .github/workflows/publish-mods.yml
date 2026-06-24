@@ -24,6 +24,11 @@ on:
         options: [stable, beta, alpha]
         required: true
         default: 'stable'
+      changelog_branch:
+        description: 'Branch to read CHANGELOG.md from'
+        type: string
+        required: false
+        default: 'changelog'
       publish_curseforge:
         description: 'Publish to CurseForge'
         type: boolean
@@ -64,6 +69,7 @@ jobs:
           MODRINTH_PROJECT_ID: ${{ vars.MODRINTH_PROJECT_ID }}
           CURSEFORGE_TOKEN: ${{ secrets.CURSEFORGE_TOKEN }}
           CURSEFORGE_PROJECT_ID: ${{ vars.CURSEFORGE_PROJECT_ID }}
+          CHANGELOG_BRANCH: ${{ inputs.changelog_branch }}
         shell: bash
         run: |
           set -euo pipefail
@@ -93,6 +99,21 @@ jobs:
 
           chmod +x ./gradlew
           commitish="$(git rev-parse HEAD)"
+          changelog_branch="$CHANGELOG_BRANCH"
+          changelog_file="$RUNNER_TEMP/moemusic-release-changelog.md"
+
+          if [[ -z "$changelog_branch" ]]; then
+            echo "changelog_branch must not be empty." >&2
+            exit 1
+          fi
+          if ! git check-ref-format "refs/heads/$changelog_branch" >/dev/null; then
+            echo "Invalid changelog branch: $changelog_branch" >&2
+            exit 1
+          fi
+
+          echo "Using CHANGELOG.md from $changelog_branch."
+          git fetch --no-tags origin "+refs/heads/$changelog_branch:refs/remotes/origin/$changelog_branch"
+          git show "refs/remotes/origin/$changelog_branch:CHANGELOG.md" > "$changelog_file"
 
           ./gradlew \
             -Pmoemusic.useCompositeShared=false \
@@ -101,6 +122,6 @@ jobs:
             -Pmoemusic.publish.type="${{ inputs.version_type }}" \
             -Pmoemusic.publish.branch="$GITHUB_REF_NAME" \
             -Pmoemusic.publish.commitish="$commitish" \
-            -Pmoemusic.publish.changelogFile=CHANGELOG.md \
+            -Pmoemusic.publish.changelogFile="$changelog_file" \
             -Pmoemusic.publish.dryRun="${{ inputs.dry_run }}" \
             buildModJars publishMods --stacktrace
