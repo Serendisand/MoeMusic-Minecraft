@@ -72,9 +72,8 @@ internal object ClientPlaybackServiceImpl : IClientPlaybackService {
         ModConfigManager.updateClient { client ->
             val disabledServers = client.disabledServers.toMutableList().apply {
                 if (serverScope != null) {
-                    val key = serverScope.key
-                    remove(key)
-                    if (!enabled) add(key)
+                    removeAll(serverScope.matchingKeys())
+                    if (!enabled) add(serverScope.key)
                 }
             }
             client.copy(disabledServers = disabledServers.distinct())
