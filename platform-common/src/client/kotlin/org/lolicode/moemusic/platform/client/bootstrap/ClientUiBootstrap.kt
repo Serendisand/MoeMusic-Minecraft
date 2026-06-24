@@ -197,7 +197,7 @@ object ClientShortcutController {
         when (ClientPlaybackHandler.currentContext?.state) {
             is PlaybackState.Playing ->
                 ClientPlaybackHandler.sendPlaybackControl(PlaybackControlAction.PAUSE)
-            is PlaybackState.Paused ->
+            is PlaybackState.Paused, null ->  // null indicates STOPPED state, should also resume
                 ClientPlaybackHandler.sendPlaybackControl(PlaybackControlAction.RESUME)
             else -> Unit
         }
@@ -205,7 +205,6 @@ object ClientShortcutController {
 
     private fun handleNextTrackKey(mc: Minecraft) {
         if (mc.player == null || mc.connection == null) return
-        if (ClientPlaybackHandler.currentContext == null) return
         ClientPlaybackHandler.sendPlaybackControl(PlaybackControlAction.SKIP)
     }
 
