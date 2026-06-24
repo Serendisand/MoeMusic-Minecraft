@@ -18,9 +18,7 @@ internal fun showWrappedSystemToast(
     title: Component,
     message: Component,
 ) {
-    val toastManager = minecraft.toastManager
-    toastManager.getToast(SystemToast::class.java, id)?.forceHide()
-    toastManager.addToast(SystemToast.multiline(minecraft, id, title, message))
+    SystemToast.addOrUpdate(minecraft.gui.toastManager(), id, title, message)
 }
 
 internal fun showPersistentRuntimeWarning(

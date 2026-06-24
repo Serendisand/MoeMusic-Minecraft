@@ -30,6 +30,7 @@ import org.lolicode.moemusic.platform.client.playback.ClientPlaybackHandler
 import org.lolicode.moemusic.platform.client.i18n.ClientLocalization
 import org.lolicode.moemusic.platform.client.ui.ClientToastIds
 import org.lolicode.moemusic.platform.client.audio.VanillaSoundBlocker
+import org.lolicode.moemusic.platform.client.ui.setScreen
 import org.lolicode.moemusic.platform.client.ui.showWrappedSystemToast
 import java.nio.file.Path
 import java.util.*

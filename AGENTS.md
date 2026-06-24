@@ -4,8 +4,8 @@ This document serves as working guidance for AI agents and developers working on
 
 ## Project Baseline & Branch Strategy
 
-- **Multi-Version Maintenance**: The repository uses separate Git branches to target different Minecraft versions (e.g., `version/26.1`). The default branch always points to the latest supported Minecraft version.
-- **Java Target Split**: Loader-facing modules like `:platform-common`, `:fabric`, and `:neoforge` compile at the Java level required by the target Minecraft version (Java 25 for Minecraft 26.1.x, Java 21 for 1.21.1, and Java 17 for 1.20.1/1.19/1.18.2). The Java 17 targets should still be compiled with JDK 21 because some toolchains will not work with older JDKs, but the bytecode target should be set to 17.
+- **Multi-Version Maintenance**: The repository uses separate Git branches to target different Minecraft versions (this worktree is `version/26.2`). The default branch always points to the latest supported Minecraft version.
+- **Java Target Split**: Loader-facing modules like `:platform-common`, `:fabric`, and `:neoforge` compile at the Java level required by the target Minecraft version (Java 25 for Minecraft 26.1+, Java 21 for 1.21.1, and Java 17 for 1.20.1/1.19/1.18.2). The Java 17 targets should still be compiled with JDK 21 because some toolchains will not work with older JDKs, but the bytecode target should be set to 17.
 - **Gradle Builds**: The platform build supports two dependency modes: local sibling composite build (`includeBuild("../shared")`) for development, and consuming published core artifacts from Maven repositories.
 
 ## Architecture Boundaries
@@ -15,7 +15,7 @@ This document serves as working guidance for AI agents and developers working on
 - `:neoforge` (and `:forge` on older branches) owns NeoForge-only bootstrap, lifecycle wiring, permission bridge, and config-screen integration.
 - **Dependency Guard**: Keep loader-specific APIs and dependencies out of `:platform-common` unless the public API is truly loader-neutral.
 
-## Minecraft Platform Adaptation Guidelines (Minecraft 26.1.x)
+## Minecraft Platform Adaptation Guidelines (Minecraft 26.2)
 
 ### Resource & Command Identifiers
 - Use `net.minecraft.resources.Identifier`.
@@ -24,19 +24,29 @@ This document serves as working guidance for AI agents and developers working on
 ### Permissions & Commands
 - Vanilla permission checks: use `permissions().hasPermission(Permission.HasCommandLevel(PermissionLevel.byId(level)))`. Do not use the deprecated `hasPermissions(int)` method.
 - Use `org.lolicode.moemusic.platform.text.McText` helpers instead of direct vanilla text component constructors, as the text API changes across versions.
+- For interactive command output, continue using `MutableComponent.withStyle { ... }` with click/hover events. Do not introduce new component code that depends on `ChatFormatting` internals; in 26.2 `ChatFormatting` is no longer the general component color/format representation.
+
+### GUI Ownership
+- In 26.2 the current screen, overlays, toasts, and many HUD-facing methods live under `Minecraft.gui` / `Minecraft.gui.hud`, not directly on `Minecraft`.
+- Shared client UI should use `org.lolicode.moemusic.platform.client.ui.MinecraftGuiAccess` for screen reads and writes (`mc.screen`, `mc.setScreen(...)`). If code cannot use that helper, call `mc.gui.screen()` and `mc.gui.setScreen(...)` directly.
+- Do not call removed 26.1-era APIs such as `Minecraft.screen`, `Minecraft.setScreen(...)`, or `Minecraft.toastManager`.
+- Toasts use `minecraft.gui.toastManager()`. `SystemToast.multiline(...)` is gone in 26.2; use `SystemToast.add(...)` or `SystemToast.addOrUpdate(...)`. MoeMusic uses `addOrUpdate` for repeated runtime warnings/tips so they refresh instead of stacking.
+- If vanilla HUD messages/titles are needed, route them through `minecraft.gui.hud`. Player overlay messages can still use `player.sendOverlayMessage(...)`.
 
 ### GUI & HUD Rendering
-- Many render methods on the graphics extractor lost their `draw`/`render` prefixes. Use `GuiGraphicsExtractor` for HUD rendering.
+- Minecraft 26.2 added the Vulkan backend path. GUI/HUD code in this mod must not use raw OpenGL, `RenderSystem` state pokes, or classes under `com.mojang.blaze3d.opengl`; keep rendering through Minecraft's GUI extraction/render pipeline.
+- Use `GuiGraphicsExtractor` for custom screens and HUD rendering. Text should be submitted with extractor helpers such as `text`, `centeredText`, and `textWithWordWrap`; do not add direct `Font.drawInBatch` usage, as the old font draw methods were removed.
 - For HUD transformation matrix operations, use `GuiGraphicsExtractor.pose()` which returns a `Matrix3x2fStack`. Use `pushMatrix()`, `translate()`, `rotate()`, `scale()`, and `popMatrix()`.
-- HUD element registration on Fabric uses `HudElementRegistry.attachElementAfter(...)`/`attachElementBefore` with a `HudElement` callback.
-- Screen background blur: `Screen.extractRenderStateWithTooltipAndSubtitles(...)` already calls `extractBackground(...)`. Custom screens should not call `extractBackground(...)` again to avoid tripping the blur-per-frame guard.
+- HUD element registration is loader-specific: Fabric uses `HudElementRegistry.attachElementBefore(...)`/`attachElementAfter(...)`, while NeoForge uses `RegisterGuiLayersEvent` (`registerBelowAll` for MoeMusic's now-playing HUD).
+- Custom screens should render through `extractRenderState(...)` and call `super.extractRenderState(...)` once. Do not manually duplicate background extraction.
 
 ### Dynamic Cover Art & Textures
 - GUI colors passed to the graphics extractor are packed ARGB integers. RGB-only literals (e.g., `0xFFFFFF`) will render fully transparent.
 - Use `DynamicTexture({ label }, image)` for runtime cover textures and draw them via `blit(RenderPipelines.GUI_TEXTURED, id, ...)`.
+- Register and release runtime cover textures on the Minecraft client thread (`Minecraft.execute { ... }`). Close `NativeImage`s yourself only when registration fails or when you created temporary intermediate images; registered `DynamicTexture`s own their image.
 
 ### Keybindings
-- Keybinding categories use `KeyMapping.Category`. A category like `moemusic:general` translates `id.toLanguageKey("key.category")`, requiring `key.category.moemusic.general` in the translation file.
+- Keybinding categories use `KeyMapping.Category` values, not raw category strings. A category like `moemusic:general` translates `id.toLanguageKey("key.category")`, requiring `key.category.moemusic.general` in the translation file.
 
 ## Networking Integration (Bad Packets)
 

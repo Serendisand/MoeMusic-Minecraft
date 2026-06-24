@@ -1,11 +1,10 @@
 package org.lolicode.moemusic.platform.client.ui.config
 
-import org.lolicode.moemusic.platform.text.McText
-
 import net.minecraft.client.gui.GuiGraphicsExtractor
 import net.minecraft.client.gui.components.Button
 import net.minecraft.client.gui.screens.Screen
-import net.minecraft.network.chat.Component
+import org.lolicode.moemusic.platform.client.ui.setScreen
+import org.lolicode.moemusic.platform.text.McText
 
 /**
  * Simple fallback screen shown when the optional Cloth Config dependency is not installed.
