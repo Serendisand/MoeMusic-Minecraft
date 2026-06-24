@@ -167,6 +167,8 @@ class MusicPlayerScreen : Screen(TITLE), ClientPlaybackHandler.GuiListener {
     private var pendingPlaybackControlRequestId: Long? = null
     private var playbackError: String? = null
     private var playbackSuccess: String? = null
+    private var playbackErrorFromInstanceLock = false
+    private var playbackErrorFromLocalPlayback = false
     private var rowActionMenu: RowActionMenuState? = null
     private var rowActionMenuLayout: RowActionMenuLayout? = null
     private var pendingServerFilterOrigin: TrackListVariant? = null
@@ -285,7 +287,14 @@ class MusicPlayerScreen : Screen(TITLE), ClientPlaybackHandler.GuiListener {
         ClientPlaybackHandler.lastTrackSubmitResponse?.let(::onTrackSubmitResponse)
         ClientPlaybackHandler.lastQueueRemoveResponse?.let(::onQueueRemoveResponse)
         ClientPlaybackHandler.lastPlaybackControlResponse?.let(::onPlaybackControlResponse)
-        onInstancePlaybackStandby(ClientPlaybackHandler.lastInstanceLockMessage)
+        (ClientPlaybackHandler.lastLocalPlaybackFailureMessage
+            ?: ClientPlaybackHandler.lastLocalPlaybackBlockedMessage)?.let { message ->
+            playbackSuccess = null
+            playbackError = message
+            playbackErrorFromInstanceLock = false
+            playbackErrorFromLocalPlayback = true
+        }
+        ClientPlaybackHandler.lastInstanceLockMessage?.let(::onInstancePlaybackStandby)
 
         pendingUiBootstrapRequestId = ClientPlaybackHandler.sendUiBootstrapRequest()
         rebuildScreenWidgets()
@@ -854,6 +863,8 @@ class MusicPlayerScreen : Screen(TITLE), ClientPlaybackHandler.GuiListener {
         val playPauseButton = Button.builder(McText.translatable(playLabelKey)) {
             playbackError = null
             playbackSuccess = null
+            playbackErrorFromInstanceLock = false
+            playbackErrorFromLocalPlayback = false
             pendingPlaybackControlRequestId =
                 if (ClientPlaybackHandler.currentContext?.state is PlaybackState.Paused || ClientPlaybackHandler.currentContext == null) {
                     ClientPlaybackHandler.sendPlaybackControl(PlaybackControlAction.RESUME)
@@ -867,6 +878,8 @@ class MusicPlayerScreen : Screen(TITLE), ClientPlaybackHandler.GuiListener {
         val skipButton = Button.builder(McText.translatable("screen.moemusic.control.skip")) {
             playbackError = null
             playbackSuccess = null
+            playbackErrorFromInstanceLock = false
+            playbackErrorFromLocalPlayback = false
             pendingPlaybackControlRequestId = ClientPlaybackHandler.sendPlaybackControl(PlaybackControlAction.SKIP)
         }.pos(skipButtonX, btnY).size(btnW, btnH).build()
         skipButton.active = canSkipPlayback()
@@ -875,6 +888,8 @@ class MusicPlayerScreen : Screen(TITLE), ClientPlaybackHandler.GuiListener {
         val stopButton = Button.builder(McText.translatable("screen.moemusic.control.stop")) {
             playbackError = null
             playbackSuccess = null
+            playbackErrorFromInstanceLock = false
+            playbackErrorFromLocalPlayback = false
             pendingPlaybackControlRequestId = ClientPlaybackHandler.sendPlaybackControl(PlaybackControlAction.STOP)
         }.pos(stopButtonX, btnY).size(btnW, btnH).build()
         stopButton.active = canControlPlayback()
@@ -1067,6 +1082,16 @@ class MusicPlayerScreen : Screen(TITLE), ClientPlaybackHandler.GuiListener {
                 dimCol,
                 true
             )
+            playbackError?.let { error ->
+                context.text(
+                    font,
+                    McText.literal("✗ $error"),
+                    textX,
+                    contentY + 10 + lineH + 6,
+                    errCol,
+                    true,
+                )
+            }
             return
         }
 
@@ -2045,6 +2070,8 @@ class MusicPlayerScreen : Screen(TITLE), ClientPlaybackHandler.GuiListener {
                 val seekMs = (seekBarDragProgress * durationMs).toLong().coerceIn(0L, durationMs)
                 playbackError = null
                 playbackSuccess = null
+                playbackErrorFromInstanceLock = false
+                playbackErrorFromLocalPlayback = false
                 pendingPlaybackControlRequestId = ClientPlaybackHandler.sendPlaybackControl(PlaybackControlAction.SEEK, seekMs)
             }
             return true
@@ -2703,6 +2730,8 @@ class MusicPlayerScreen : Screen(TITLE), ClientPlaybackHandler.GuiListener {
             pendingPlaybackControlRequestId = null
             playbackError = response.failure.ifEmpty { null }
             playbackSuccess = if (response.failure.isEmpty()) response.success.ifEmpty { null } else null
+            playbackErrorFromInstanceLock = false
+            playbackErrorFromLocalPlayback = false
         }
     }
 
@@ -2710,6 +2739,43 @@ class MusicPlayerScreen : Screen(TITLE), ClientPlaybackHandler.GuiListener {
         Minecraft.getInstance().execute {
             playbackSuccess = null
             playbackError = message
+            playbackErrorFromInstanceLock = false
+            playbackErrorFromLocalPlayback = true
+            if (currentTab == Tab.NOW_PLAYING) {
+                rebuildScreenWidgets()
+            }
+        }
+    }
+
+    override fun onLocalPlaybackRetrying(message: String) {
+        Minecraft.getInstance().execute {
+            playbackSuccess = null
+            playbackError = message
+            playbackErrorFromInstanceLock = false
+            playbackErrorFromLocalPlayback = true
+            if (currentTab == Tab.NOW_PLAYING) {
+                rebuildScreenWidgets()
+            }
+        }
+    }
+
+    override fun onLocalPlaybackRecovered(track: TrackInfo) {
+        Minecraft.getInstance().execute {
+            playbackError = null
+            playbackErrorFromInstanceLock = false
+            playbackErrorFromLocalPlayback = false
+            if (currentTab == Tab.NOW_PLAYING) {
+                rebuildScreenWidgets()
+            }
+        }
+    }
+
+    override fun onLocalPlaybackFailed(message: String) {
+        Minecraft.getInstance().execute {
+            playbackSuccess = null
+            playbackError = message
+            playbackErrorFromInstanceLock = false
+            playbackErrorFromLocalPlayback = true
             if (currentTab == Tab.NOW_PLAYING) {
                 rebuildScreenWidgets()
             }
@@ -2718,8 +2784,20 @@ class MusicPlayerScreen : Screen(TITLE), ClientPlaybackHandler.GuiListener {
 
     override fun onInstancePlaybackStandby(message: String?) {
         Minecraft.getInstance().execute {
+            if (message == null) {
+                if (playbackErrorFromInstanceLock) {
+                    playbackError = null
+                    playbackErrorFromInstanceLock = false
+                    if (currentTab == Tab.NOW_PLAYING) {
+                        rebuildScreenWidgets()
+                    }
+                }
+                return@execute
+            }
             playbackSuccess = null
             playbackError = message
+            playbackErrorFromInstanceLock = true
+            playbackErrorFromLocalPlayback = false
             if (currentTab == Tab.NOW_PLAYING) {
                 rebuildScreenWidgets()
             }
@@ -2753,6 +2831,13 @@ class MusicPlayerScreen : Screen(TITLE), ClientPlaybackHandler.GuiListener {
 
     override fun onPlaybackStateChanged() {
         Minecraft.getInstance().execute {
+            if (playbackErrorFromLocalPlayback &&
+                ClientPlaybackHandler.lastLocalPlaybackFailureMessage == null &&
+                ClientPlaybackHandler.lastLocalPlaybackBlockedMessage == null
+            ) {
+                playbackError = null
+                playbackErrorFromLocalPlayback = false
+            }
             if (currentTab == Tab.NOW_PLAYING || currentTab == Tab.QUEUE) {
                 rebuildScreenWidgets()
             }
