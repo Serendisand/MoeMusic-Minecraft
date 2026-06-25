@@ -1,0 +1,26 @@
+## 2026-06-25 (v1.3.0)
+- Adapted to Minecraft 26.2.
+- Added volume normalization. The current implementation requires music sources to provide valid LUFS data, so source plugin developers need to expose the relevant field.
+- Added a permission for allowing duplicate track submissions.
+- Added permission state synchronization between the server and client, so GUI controls now update themselves based on the user's permissions.
+- Added in-game error reporting for playback failures, and the current track is now skipped automatically in singleplayer.
+- Corrected the key name used when storing toggle rules for singleplayer worlds, fixing an issue where worlds with the same name could overwrite each other's rules.
+- Fixed keyboard shortcuts not working while playback was stopped.
+- Fixed the HUD cover rotation angle being reset while playback was paused.
+- Fixed when adding the current track to local filter, it won't stop immediately.
+- Fixed some mp3 tracks can't decode, and some flac tracks with id3 tags are misclassified as mp3.
+- Refactored the public API to improve future compatibility. The API version has been raised to 2.1.1, and plugins written for API version 1 must be updated before they can be used again.
+- This should be the first public release after passing Modrinth review. Enjoy!
+
+- 适配 Minecraft 26.2。
+- 新增了音量平衡功能。目前的实现需要音源提供有效的 LUFS 数据，请音源开发者在插件中接入相应的字段。
+- 新增了用于允许重复提交乐曲的权限。
+- 新增了服务端和客户端间的权限信息同步，现在GUI中的控件会根据用户的权限更新自身状态。
+- 新增了播放失败时，游戏内的错误报告，并且在单人模式下会自动跳过当前曲目。
+- 修正了存储单人世界的开关规则时使用的键名称，以修复重名的单人世界的开关规则会相互覆盖的问题。
+- 修复了播放停止状态下，键盘快捷键失效的问题。
+- 修复了暂停状态下，HUD 中封面旋转角度被重置的问题。
+- 修复了添加当前正在播放的乐曲到本地过滤器时，歌曲不会立即停止播放的问题。
+- 修复了部分 MP3 无法正常播放、带 ID3 的 FLAC 文件被误判为 MP3 的问题。
+- 重构了公共 API 以提升未来的兼容性。API版本已提升至 2.1.1，此前为 API 版本 1 编写的插件需要重新适配后才能使用。
+- 这应当是通过 Modrinth 审核后的第一个公开发行版本，祝使用愉快！
