@@ -41,9 +41,9 @@ jobs:
           archive: false
           path: build/libs/*-fabric-*.jar
 
-      - name: upload neoforge jar
+      - name: upload forge jar
         uses: actions/upload-artifact@v7
         with:
-          name: neoforge
+          name: forge
           archive: false
-          path: build/libs/*-neoforge-*.jar
+          path: build/libs/*-forge-*.jar
