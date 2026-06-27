@@ -2,11 +2,7 @@
 
 简体中文 | [English](./README.md)
 
-> [!IMPORTANT]
-> **关于版本分支：**
-> 本仓库使用 Git 分支来指向不同的 Minecraft 版本（例如 `version/26.1`）。默认分支始终指向最新支持的 Minecraft 版本。当新的 Minecraft 版本发布时，默认分支将会随之修改。所有仓库文档（包括本文档）应以默认分支的为准。
-
-MoeMusic 是一款为 Minecraft 设计的服务器同步音乐 Mod。它负责协调服务器上的共享音乐队列，同步所有已连接客户端的音频播放进度，并允许玩家通过游戏内控件进行点歌、搜索、切歌及管理播放列表。
+MoeMusic 是一款为 Minecraft 设计的音乐播放 Mod。它支持同时使用多个音源，并允许玩家通过游戏内控件进行点歌、搜索、切歌及管理播放列表。在服务器上安装时，还能协调服务器上的共享音乐队列，同步所有已连接客户端的音频播放进度。
 
 <details>
 <summary><b>📷 点击查看游戏内功能截图</b></summary>
@@ -20,23 +16,51 @@ MoeMusic 是一款为 Minecraft 设计的服务器同步音乐 Mod。它负责�
 
 ---
 
+## 快速开始
+
+1. 下载与您使用的加载器（Loader）和 Minecraft 版本相匹配的 MoeMusic Mod JAR 文件。
+2. 安装所有必需的依赖项。
+3. 在客户端安装该 Mod。若要在服务器使用，需要在服务器和所有需要收听音乐的客户端上均安装该 Mod。
+4. 启动一次游戏或服务器以生成 `config/moemusic/moemusic.toml` 配置文件。
+5. 寻找你想要使用的[音源插件](https://github.com/lolicode-org/MoeMusic/wiki/Plugins---%E6%8F%92%E4%BB%B6%E5%88%97%E8%A1%A8)，并将其放入 `config/moemusic/plugins/` 目录中。
+6. 打开世界或进入服务器，按 `M` 键打开播放器界面。
+
+> [!WARNING]
+> 如果你正在服务器上安装本 Mod，请注意：
+> 默认情况下，直接提交 HTTP/HTTPS 音频链接需要权限等级 4（管理员权限）以保护玩家免受未信任主机的攻击。您可以通过分配 `moemusic.admin.source.http` 权限，或者在配置文件中降低 `permissions.source_http_submit` 的数值来允许普通玩家提交链接。
+> 但我们强烈建议您安装音源插件来提供受信任的音乐服务，而不是直接允许链接提交。默认设置下，所有玩家都可以提交受支持的音乐源的链接或 ID，这能在保证安全的前提下提供更佳的用户体验。
+
+---
+
+## 播放器控制
+
+默认快捷键：
+- `M`：打开音乐播放器界面。所有的控制功能（搜索、添加、删除曲目，播放、暂停，调整音量，调整进度，屏蔽曲目等）都可以在这里找到。
+- `Pause`：播放/暂停当前歌曲。
+- `Page Up`：音量增大 5%。
+- `Page Down`：音量减小 5%。
+- *说明：“打开设置”与“跳过当前歌曲”快捷键已注册，但默认未绑定按键。*
+
+---
+
 ## 功能特性
 
 MoeMusic 由平台无关的核心库以及 Minecraft Mod 适配实现组成：
 
 ### 1. 核心引擎功能
-- **跨平台音频解码**：基于 `lavaplayer` 提供支持，能够解码 MP3、OGG、WAV、FLAC 等音频格式，以及 M3U 和 PLS 等播放列表结构。
+- **跨平台音频解码**：基于 `lavaplayer` 提供支持，能够解码 MP3、OGG、WAV、FLAC 等几乎所有主流音频格式，以及 M3U 和 PLS 等播放列表结构。
 - **可扩展的插件系统**：支持通过将独立的 JAR 插件放入 `config/moemusic/plugins/` 目录来加载自定义音乐源。
 - **内容过滤与安全策略**：支持在服务器和客户端配置关键字及正则表达式过滤规则，并限制单曲最大播放时长。
 - **媒体防火墙**：客户端内置防火墙，根据黑名单或白名单验证服务器提供的媒体链接，以防止 IP 泄露并防范未信任的主机。
 - **请求限流**：在服务器端限制用户的请求频率，防止接口滥用及 API 超负荷。
 - **本地化语言覆盖**：支持在 `config/moemusic/lang/<namespace>/` 目录下通过自定义 JSON 语言文件覆盖默认文本。
 - **单实例运行模式**：默认以单实例模式运行，避免在同一台设备上运行多个客户端时产生音频叠加输出。
+- **音量平衡**：自动调整音量，在播放不同响度的曲目时可以提供更一致的体验。
 
 ### 2. Minecraft Mod 功能
 - **服务器同步播放列表**：保持所有参与播放的客户端玩家的音频播放进度同步。
 - **游戏内音乐播放器界面**：默认通过按键 `M` 打开，包含“正在播放”状态、搜索页签和播放列表管理。
-- **HUD 屏幕显示**：在屏幕上覆层显示当前歌曲的元数据、封面图、播放进度以及歌词。
+- **HUD 屏幕显示**：在屏幕上覆层显示当前歌曲的信息、封面图、播放进度以及歌词。
 - **聊天栏命令控制**：为玩家和管理员提供完整的聊天栏控制命令。
 - **投票切歌与权限管理**：普通玩家可参与投票切歌，管理员则可直接进行播放控制（立即播放、暂停、跳过、停止、定位播放进度）。
 - **集成的配置界面**：支持使用 Cloth Config 和 Mod Menu 插件提供游戏内配置菜单。
@@ -44,119 +68,36 @@ MoeMusic 由平台无关的核心库以及 Minecraft Mod 适配实现组成：
 
 ---
 
-## 运行要求与版本矩阵
+## 支持版本
 
-MoeMusic 通过不同的 Git 分支支持多个 Minecraft 版本。当前的默认分支针对 Minecraft **26.1.2**（支持 Minecraft 26.1.x 分支）。
+本仓库使用 Git 分支来指向不同的 Minecraft 版本（例如 `version/26.2`）。默认分支始终指向最新支持的 Minecraft 版本。当新的 Minecraft 版本发布时，默认分支将会随之修改。所有仓库文档（包括本文档）应以默认分支的为准。
 
-需要在服务器以及所有希望收听音乐的客户端上安装该 Mod。
+目前受支持的版本有：
+- 26.2
+- 26.1.x
+- 1.21.1
+- 1.20.1
+- 1.19-1.19.2
+- 1.18.2
 
-### 受支持的版本
+## 依赖
 
-<details>
-<summary><b>Minecraft 26.1.x（分支：<code>version/26.1</code> - 默认）</b></summary>
+### Fabric / NeoForge / Forge
+- Bad Packets
+- Cloth Config （可选，提供设置界面）
+- LuckPerms （服务端可选，提供更精细的权限控制）
 
-#### Fabric
-- Java 25 或更高版本
-- Fabric Loader
+### Fabric
 - Fabric API
 - Fabric Language Kotlin
-- Bad Packets
+- Mod Menu （可选，提供模组列表）
+- Fabric Permissions API （服务端可选，提供高级权限接口）
 
-#### NeoForge
-- Java 25 或更高版本
-- NeoForge 26.1.x
+### NeoForge / Forge
 - Kotlin for Forge
-- Bad Packets
-</details>
 
-<details>
-<summary><b>Minecraft 1.21.1（分支：<code>version/1.21.1</code>）</b></summary>
-
-#### Fabric
-- Java 21 或更高版本
-- Fabric Loader
-- Fabric API
-- Fabric Language Kotlin
-- Bad Packets
-
-#### NeoForge
-- Java 21 或更高版本
-- NeoForge 21.1.x
-- Kotlin for Forge
-- Bad Packets
-</details>
-
-<details>
-<summary><b>Minecraft 1.20.1（分支：<code>version/1.20.1</code>）</b></summary>
-
-#### Fabric
-- Java 17 或更高版本
-- Fabric Loader
-- Fabric API
-- Fabric Language Kotlin
-- Bad Packets (0.4.x)
-
-#### Forge
-- Java 17 或更高版本
-- Forge 47.1.x 或更高版本
-- Kotlin for Forge
-- Bad Packets (0.4.x)
-</details>
-
-<details>
-<summary><b>Minecraft 1.19（分支：<code>version/1.19</code>）</b></summary>
-
-#### Fabric
-- Java 17 或更高版本
-- Fabric Loader
-- Fabric API
-- Fabric Language Kotlin
-- Bad Packets (0.1.x)
-
-#### Forge
-- Java 17 或更高版本
-- Forge 41.x 或更高版本
-- Bad Packets (0.1.x)
-*(说明：1.19 的 Forge 版本内部捆绑了 Kotlin 库，不需要 Kotlin for Forge，且会和其冲突。如果你想避免这个问题，请使用 Fabric 或升级到 1.20.1 及以上的 Minecraft 版本)*
-</details>
-
-<details>
-<summary><b>Minecraft 1.18.2（分支：<code>version/1.18.2</code>）</b></summary>
-
-#### Fabric
-- Java 17 或更高版本
-- Fabric Loader
-- Fabric API
-- Fabric Language Kotlin
-- Bad Packets (0.1.x)
-
-#### Forge
-- Java 17 或更高版本
-- Forge 40.x 或更高版本
-- Bad Packets (0.1.x)
-*(说明：1.18.2 的 Forge 版本内部捆绑了 Kotlin 库，不需要 Kotlin for Forge，且会和其冲突。如果你想避免这个问题，请使用 Fabric 或升级到 1.20.1 及以上的 Minecraft 版本)*
-</details>
-
-### 可选扩展组件（所有版本通用）
-- **Cloth Config**：用于启用游戏内的配置设置屏幕。
-- **Mod Menu**：为 Fabric 提供配置菜单按钮。
-- **Fabric Permissions API**：用于将 Fabric 服务器与权限节点进行桥接。
-- **LuckPerms**：在 NeoForge/Forge 和 Fabric 上提供高级的权限节点检查。
-
----
-
-## 快速入门
-
-1. 下载与您使用的加载器（Loader）和 Minecraft 版本相匹配的 MoeMusic Mod JAR 文件。
-2. 安装所有必需的依赖项。
-3. 在服务器和需要收听音乐的客户端上均安装该 Mod。
-4. 启动一次游戏或服务器以生成 `config/moemusic/moemusic.toml` 配置文件。
-5. 如需使用第三方的音乐服务，请将对应的音乐源插件放入 `config/moemusic/plugins/` 目录中。
-6. 进入服务器，按 `M` 键打开播放器界面。
-
-> [!WARNING]
-> 默认情况下，直接提交 HTTP/HTTPS 音频链接需要权限等级 4（管理员权限）以保护玩家免受未信任主机的侵害。您可以通过分配 `moemusic.admin.source.http` 权限，或者在配置文件中降低 `permissions.source_http_submit` 的数值来允许普通玩家提交链接。
-> 但我们强烈建议您安装音源插件来提供受信任的音乐服务，而不是直接允许链接提交。默认设置下，所有玩家都可以提交受支持的音乐源的链接或 ID，这能在保证安全的前提下提供更佳的用户体验。
+> [!IMPORTANT]
+> 适配 1.19 和 1.18.2 的 MoeMusic for Forge 内部捆绑了 Kotlin 库，不需要 Kotlin for Forge，且会和其冲突。如果你想避免这个问题，请使用 Fabric 或升级到 1.20.1 及以上的 Minecraft 版本。
 
 ---
 
@@ -168,7 +109,7 @@ MoeMusic 通过不同的 Git 分支支持多个 Minecraft 版本。当前的默�
 本模组支持通过插件导入第三方音乐源或扩展功能。
 
 > [!TIP]
-> 你可以在 [插件列表](https://github.com/lolicode-org/MoeMusic/wiki/Plugins---%E6%8F%92%E4%BB%B6%E5%88%97%E8%A1%A8) 中查看官方支持和社区推荐的插件列表及其功能介绍。
+> 你可以在 [插件列表](https://github.com/lolicode-org/MoeMusic/wiki/Plugins---%E6%8F%92%E4%BB%B6%E5%88%97%E8%A1%A8) 中查看由我们或社区编写的插件列表及其功能介绍。
 
 根据插件作者的开发方式，插件通常有以下两种安装方式：
 
@@ -180,7 +121,7 @@ MoeMusic 通过不同的 Git 分支支持多个 Minecraft 版本。当前的默�
   2. 重启游戏或服务器。
 
 > [!TIP]
-> 具体采用哪种方式，请参考插件作者的安装说明。若作者未作明确说明，您可以尝试将该插件放入其中一个目录下（或依次在两个目录下进行尝试）。
+> 具体采用哪种方式，请参考插件作者的安装说明。若作者未作明确说明，您可以依次在两个目录下进行尝试。
 
 > [!WARNING]
 > 插件将以本地受信任代码的形式执行。为了您的系统安全，请仅安装来自可信来源的插件。
@@ -195,17 +136,6 @@ MoeMusic 通过不同的 Git 分支支持多个 Minecraft 版本。当前的默�
    - 插件路径：`config/moemusic/lang/<命名空间>/`
 3. 将自定义的 JSON 语言文件放置在上述文件夹中（例如，简体中文语言文件命名为 `zh_cn.json`）。
 4. 重启游戏或服务器以使翻译生效。
-
----
-
-## 播放器控制
-
-默认快捷键：
-- `M`：打开音乐播放器界面。
-- `Pause`：播放/暂停当前歌曲。
-- `Page Up`：音量增大 5%。
-- `Page Down`：音量减小 5%。
-- *说明：“打开设置”与“跳过当前歌曲”快捷键已注册，但默认未绑定按键。*
 
 ---
 
@@ -248,17 +178,18 @@ MoeMusic 通过不同的 Git 分支支持多个 Minecraft 版本。当前的默�
 - `default_language`：控制台输出以及未安装客户端 Mod 的玩家的备用回退语言。
 - `vote_required_percent`：切歌所需的在线玩家同意比例。
 - `autoplay`：自动播放选项以及每个源的最大自动播放项数限制。
-- `permissions`：未安装高级权限插件时，特定操作回退使用的原版 OP 等级要求。
+- `permissions`：未安装高级权限插件时，执行特定操作需要的原版 OP 等级。
 - `content_filter`：服务器强制执行的歌曲、艺术家、文本及正则表达式过滤规则。
 - `media`：媒体防火墙规则、频率限制、点歌页面限制以及音轨时长边界。
 
-*客户端本地配置（位于 `client` 配置块下）用于控制本地音量、封面大小限制、HUD 显示位置、唱片机/背景音乐屏蔽规则，以及单实例锁配置。*
+> [!INFO]
+> 客户端本地配置（位于 `client` 配置块下）用于控制本地音量、封面大小限制、HUD 显示位置、唱片机/背景音乐屏蔽规则，以及单实例锁配置。通常建议使用设置界面来修改它们，而不是直接编辑配置文件。
 
 ---
 
 ## 权限节点
 
-在未安装 LuckPerms 或 Fabric Permissions API 时，MoeMusic 将回退使用 `moemusic.toml` 中定义的原版 OP 等级。单人游戏世界拥有者和服务器控制台可直接跳过所有权限检查。
+在未安装 LuckPerms 或 Fabric Permissions API 时，MoeMusic 将检查 `moemusic.toml` 中定义的原版 OP 等级。单人游戏世界拥有者和服务器控制台可直接跳过所有权限检查。
 
 | 权限节点 | 用途 | 默认 OP 等级 |
 | --- | --- | --- |
@@ -286,10 +217,10 @@ MoeMusic 通过不同的 Git 分支支持多个 Minecraft 版本。当前的默�
 
 - **核心库与插件 API**：[lolicode-org/MoeMusic](https://github.com/lolicode-org/MoeMusic)
 - **音乐源插件模板**：[MoeMusic-source-template](https://github.com/lolicode-org/MoeMusic-source-template)
-- **Mod 发布与问题反馈**：[MoeMusic-Minecraft](https://github.com/lolicode-org/MoeMusic-Minecraft)
-- **开源协议**：AGPL-3.0-or-later
 
----
+## 开源协议
+
+AGPL-3.0-or-later
 
 ## 致谢
 
