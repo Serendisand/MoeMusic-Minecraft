@@ -20,13 +20,14 @@ import org.lolicode.moemusic.platform.client.ui.config.ConfigScreenAccess
 import org.lolicode.moemusic.platform.client.ui.config.MoeMusicConfigScreen
 import org.lolicode.moemusic.platform.client.network.ClientNetworkSetup
 import org.lolicode.moemusic.platform.client.ui.NowPlayingHud
+import org.lolicode.moemusic.platform.network.NetworkSetup
 
 object MoeMusicClient : ClientModInitializer {
 
     private lateinit var keyBindings: MoeMusicClientKeyBindings
 
     override fun onInitializeClient() {
-        MoeMusic.logger.info("MoeMusic client initializing…")
+        MoeMusic.logger.info("CFCMusic client initializing…")
 
         ClientPlaybackHandler.initializeClientMetadata(
             MoeMusicFabricBuildInfo.MOD_VERSION,
@@ -40,16 +41,21 @@ object MoeMusicClient : ClientModInitializer {
         // On a remote client (connecting to a dedicated server), SERVER_STARTING never fires
         // on the client JVM, so the client runtime must initialize from CLIENT_STARTED instead.
         // This fires after ALL mod initializers have run, giving external plugins time to
-        // register themselves before MoeMusic dispatches its once-per-client onClientRuntimeLoad hook.
+        // register themselves before CFCMusic dispatches its once-per-client onClientRuntimeLoad hook.
         ClientLifecycleEvents.CLIENT_STARTED.register {
             val loader = FabricLoader.getInstance()
             ClientRuntimeBootstrap.onClientStarted(
-                configDir = loader.configDir.resolve("moemusic"),
+                configDir = loader.configDir.resolve(MoeMusic.MOD_ID),
                 gameDir = loader.gameDir,
             )
         }
 
-        // Register S→C packet receivers
+        // Register S→C packet receivers and initialize the shared packet transport used by client sends.
+        val loader = FabricLoader.getInstance()
+        NetworkSetup.setupClientTransport(
+            configDir = loader.configDir.resolve(MoeMusic.MOD_ID),
+            gameDir = loader.gameDir,
+        )
         ClientNetworkSetup.register()
 
         // Register the Now Playing HUD overlay
@@ -79,6 +85,6 @@ object MoeMusicClient : ClientModInitializer {
             ClientShortcutController.handleEndClientTick(mc, keyBindings)
         }
 
-        MoeMusic.logger.info("MoeMusic client initialized.")
+        MoeMusic.logger.info("CFCMusic client initialized.")
     }
 }

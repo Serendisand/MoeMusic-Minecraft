@@ -15,11 +15,11 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
 object MoeMusic : ModInitializer {
-    const val MOD_ID = "moemusic"
+    const val MOD_ID = "cfcmusic"
     val logger: Logger = LoggerFactory.getLogger(MOD_ID)
 
     override fun onInitialize() {
-        logger.info("MoeMusic server initializing…")
+        logger.info("CFCMusic server initializing…")
 
         MoePlatform.configureRuntimeInfo(
             loaderId = MoeMusicFabricBuildInfo.LOADER_ID,
@@ -30,7 +30,7 @@ object MoeMusic : ModInitializer {
         // Initialise network channel, packet registry, and platform bootstrap
         val loader = FabricLoader.getInstance()
         NetworkSetup.setup(
-            configDir = loader.configDir.resolve("moemusic"),
+            configDir = loader.configDir.resolve(MOD_ID),
             gameDir = loader.gameDir,
         )
 
@@ -58,6 +58,6 @@ object MoeMusic : ModInitializer {
             MoePlatform.serverShutdown(finalRuntime = server.isDedicatedServer)
         }
 
-        logger.info("MoeMusic server initialized.")
+        logger.info("CFCMusic server initialized.")
     }
 }
